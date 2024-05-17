@@ -1,0 +1,7 @@
+name = "OrrSommerfeld"
+uuid = "8551611f-1dc7-4e24-8ab0-98b07f8d6847"
+authors = ["Jeff Eldredge <jdeldre@g.ucla.edu>"]
+version = "0.1.0"
+
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
