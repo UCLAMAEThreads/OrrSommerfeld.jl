@@ -37,3 +37,41 @@ function Cheb(N::Integer)
 end
 
 @inline _cheb_points(n) = cos.(π*(0:n)/n)
+
+"""
+    twonorm_weights(N)
+
+This function sets up the two norm weight matrix c for `N` Chebyshev polynomials. The matrix is defined by
+
+``
+c_{ij} = \\int_{-1}^{1} T_{i}(x) T_{j}(x)\\,\\mathrm{d}x
+``
+
+where ``T_{i}`` is a Chebyshev polynomial.
+"""
+function twonorm_weights(N::Integer)
+    c = zeros(N,N)
+    vec = 0:N-1
+
+    for i in vec, j in vec
+       if rem(i+j,2) == 0
+        p = 1/(1-(i+j)^2) + 1/(1-(i-j)^2)
+        c[i+1,j+1] = p
+       end 
+    end
+    return c
+end
+
+"""
+    deven(N)
+
+This function computes the matrix which converts `N` Chebyshev coefficents of a polynomial to `N` coefficients of the derivative.
+"""
+function deven(N::Integer)
+    d1 = zeros(N,N)
+    for i in 0:N-1, j in i+1:2:N-1
+        d1[i+1,j+1] = 2*j
+    end
+    d1[1,:] ./= 2
+    return d1
+end
