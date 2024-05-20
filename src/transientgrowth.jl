@@ -9,19 +9,19 @@ struct OptimalGrowth
 end
 
 function optimal(d::OSMatrix,T::Tuple{Float64,Float64},M::Matrix,ak2::Real; minval = -1.5, ntime = 100)
-    F = os_eigen(d,matrixpart=:full)
+    eOS = os_eigen(d,matrixpart=:full)
 
-    λ = F.values
-    X = copy(F.vectors)
+    λ = eOS.values
+    X = copy(eOS.vectors)
     normalize_columns!(X,M)
 
     imin, imax = count_eigenvalues(λ,minval;maxval=1.0)
     Xu = view(X,:,imin:imax)
     λu = view(λ,imin:imax)
     
-    qb, invF = qbmat(M,Xu,λu)
+    Qb, invF = qbmat(M,Xu,λu)
 
-    maxer(t::Real) = -opnorm(exp(t*qb))
+    maxer(t::Real) = -opnorm(exp(t*Qb))
 
     gcheck = maxer(0.01)^2
     if gcheck < 1
@@ -32,7 +32,7 @@ function optimal(d::OSMatrix,T::Tuple{Float64,Float64},M::Matrix,ak2::Real; minv
         tformax, mgrowth = mindata.minimizer, mindata.minimum^2
     end
 
-    evol = exp(tformax*qb)
+    evol = exp(tformax*Qb)
     Fevol = svd(evol)
     mgrowth = Fevol.S[1]^2
 
@@ -46,19 +46,21 @@ function optimal(d::OSMatrix,T::Tuple{Float64,Float64},M::Matrix,ak2::Real; minv
 end
 
 """
-    qbmat(M,Xu,λu)
+    qbmat(M,X,λ) -> Matrix{ComplexF64}, Matrix{ComplexF64}
 
 Computes the transient growth matrix ``Q = -i F \\lambda F^{-1}``,
-where ``\\lambda`` are the eigenvalues of the OS matrix.
+where ``\\lambda`` are the eigenvalues of the OS matrix and ``F`` the factorization
+matrix of the energy weight matrix `M`. It also returns ``F^{-1}``.
 """
-function qbmat(M,Xu,λu)
-    work = M*Xu
-    A = work'*work
+function qbmat(M,X,λ)
+    work = M*X
+    M̃ = work'*work
 
-    FA = svd(A)
-    F = Diagonal(sqrt.(FA.S))*FA.U'
-    invF = FA.U*Diagonal(1.0./sqrt.(FA.S))
-    return -im*F*Diagonal(λu)*invF, invF
+    FM = svd(M̃)
+    σ = sqrt.(FM.S)
+    F = Diagonal(σ)*FM.U'
+    invF = FM.U*Diagonal(1.0./σ)
+    return -im*F*Diagonal(λ)*invF, invF
 
 end
 
