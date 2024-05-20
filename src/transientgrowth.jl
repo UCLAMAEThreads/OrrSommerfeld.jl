@@ -28,17 +28,17 @@ struct OptimalGrowth{DT,GT}
 end
 
 """
-    optimalgrowth(d::OSMatrix,T::Tuple[; minval = -1.5, ntime = 100]) -> OptimalGrowth
+    optimal_growth(d::OSMatrix,T::Tuple[; minval = -1.5, ntime = 100]) -> OptimalGrowth
 
 Returns the optimal growth data for the system described by Orr-Sommerfeld matrix `d`, in a range of times `T`.
 Only eigenvalues with imaginary parts above `minval` are used (default -1.5).
 The results are returned in the `OptimalGrowth` type variable.
 """
-function optimalgrowth(d::OSMatrix,T; minval = -1.5, ntime = 100)
+function optimal_growth(d::OSMatrix,T; minval = -1.5, ntime = 100)
     @unpack M, ak2 = d
 
     eos = os_eigen(d,matrixpart=:full,ilims=(minval,1.0),normalize=:true)
-    λu, Xu = eos.λ, eos.X
+    λu, Xu = eos.values, eos.vectors
 
     Qb, invF = qbmat(M,Xu,λu)
 
@@ -86,6 +86,25 @@ function _collect_growth(fcn,T::Tuple{R,R},ntime::Int) where R <: Real
     tid = range(T...,length=ntime)
     gg = [fcn(t)^2 for t in tid]
     return tid, gg
+end
+
+"""
+    disturbance_energy(κ0::Vector,d::OSMatrix,eos::OSEigen,t::Real)
+
+Given a disturbance vector `κ0` (expressed as coefficients of OS eigenvectors) for an O-S system `d`
+with associated eigenvalues/vectors `eos`, compute the disturbance energy
+at time `t`. 
+"""
+function disturbance_energy(κ0::Vector{ComplexF64},d::OSMatrix{N}, eos::OSEigen, t::Real) where N
+    @unpack α, β, ak2, C, M = d
+
+    λu, Xu = eos.values, eos.vectors
+    κt = exp(-im*Diagonal(λu)*t)*κ0
+    qhat = Xu*κt
+    work = M*qhat
+
+    return 0.5/ak2*norm(work)^2
+
 end
 
 """

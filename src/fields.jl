@@ -17,7 +17,7 @@ for fname in (:velocity_x, :velocity_y, :velocity_z, :vorticity_x, :vorticity_y,
     @eval function $fname(κ0::Vector{ComplexF64},d::OSMatrix{N}, eos::OSEigen, t::Float64; lim = (0,4), Ng = 200, plane = :xy) where {N}
         @unpack α, β, ak2, C = d
 
-        λu, Xu = eos.λ, eos.X
+        λu, Xu = eos.values, eos.vectors
         κt = exp(-im*Diagonal(λu)*t)*κ0
         qhat = Xu*κt
 

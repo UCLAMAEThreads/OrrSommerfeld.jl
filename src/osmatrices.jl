@@ -13,14 +13,17 @@ end
 
 
 """
-    os_matrices(α,β,Re,C::Cheb[;baseflow=:poiseuille]) -> OSMatrix
+    os_matrices(α,β,Re[;baseflow=:poiseuille, N=200]) -> OSMatrix
 
 Returns the O-S matrices for a given base flow (between walls at y = +1/-1), for
 streamwise wavenumber `α`, spanwise wavenumber `β`, and Reynolds number `Re`.
 The default base flow is Poiseuille flow, but this can be changed to `:couette` for
-Couette flow.
+Couette flow. Optional argument `N` specifies the number of Chebyshev modes to use.
+It defaults to 200.
 """
-function os_matrices(α::Real,β::Real,Re::Real,C::Cheb{N};baseflow=:poiseuille) where N
+function os_matrices(α::Real,β::Real,Re::Real; N::Integer=200,baseflow=:poiseuille)
+    C = Cheb(N)
+
     @unpack y, D0, D1, D2, D3, D4 = C
 
 
@@ -91,6 +94,13 @@ function energy_matrix(Nos,Nsq,ak2)
 
 end
 
+struct OSEigen
+    ios :: Vector{Integer}
+    isq :: Vector{Integer}
+    values :: Vector{ComplexF64}
+    vectors :: Matrix{ComplexF64}
+end
+
 """
     os_eigen(d::OSMatrix[;matrixpart = :os])
 
@@ -136,12 +146,7 @@ function _limit_eigenvalues(λ,X,minval,maxval)
     return λu, Xu
 end
 
-struct OSEigen
-    ios :: Vector{Integer}
-    isq :: Vector{Integer}
-    λ :: Vector{ComplexF64}
-    X :: Matrix{ComplexF64}
-end
+
 
 _categorize_os_eigen(λ::Vector,X::Matrix,N::Integer,::Val{false}) = Integer[], Integer[]
 
