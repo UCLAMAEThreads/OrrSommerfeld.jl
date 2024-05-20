@@ -5,7 +5,7 @@ module OrrSommerfeld
     using UnPack
 
     export Cheb
-    export os_matrices
+    export os_matrices, os_eigen, optimalgrowth
 
     
     include("chebyshev.jl")
@@ -13,5 +13,6 @@ module OrrSommerfeld
     include("baseflows.jl")
     include("osmatrices.jl")
     include("transientgrowth.jl")
+    include("fields.jl")
 
 end

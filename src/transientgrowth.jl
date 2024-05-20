@@ -1,48 +1,91 @@
-struct OptimalGrowth
+struct OptimalGrowth{DT,GT}
+    # OS matrix data
     d :: OSMatrix
+
+    # Range of times over which the growth was inspected
     T :: Tuple{Float64,Float64}
-    ak2 :: Real
-    t :: Vector{Float64}
-    G :: Vector{Float64}
+
+     # OS eigenvalues/vectors
+     e :: OSEigen
+
+    # Maximum energy growth and the associated time
+    tformax :: Float64
+    mgrowth :: Float64
+
+    # Optimal energy growth t and amplitude
+    t :: DT
+    G :: GT
+
+    # These are the optimal disturbance and response, expressed in
+    # Chebyshev expansion coefficients 
     flow0 :: Vector{ComplexF64}
     flowt :: Vector{ComplexF64}
+
+    # These are the coordinates of the optimal disturbance and response
+    # in the OS eigenvector space
+    κ0 :: Vector{ComplexF64}
+    κt :: Vector{ComplexF64}
 end
 
-function optimal(d::OSMatrix,T::Tuple{Float64,Float64},M::Matrix,ak2::Real; minval = -1.5, ntime = 100)
-    eOS = os_eigen(d,matrixpart=:full)
+"""
+    optimalgrowth(d::OSMatrix,T::Tuple[; minval = -1.5, ntime = 100]) -> OptimalGrowth
 
-    λ = eOS.values
-    X = copy(eOS.vectors)
-    normalize_columns!(X,M)
+Returns the optimal growth data for the system described by Orr-Sommerfeld matrix `d`, in a range of times `T`.
+Only eigenvalues with imaginary parts above `minval` are used (default -1.5).
+The results are returned in the `OptimalGrowth` type variable.
+"""
+function optimalgrowth(d::OSMatrix,T; minval = -1.5, ntime = 100)
+    @unpack M, ak2 = d
 
-    imin, imax = count_eigenvalues(λ,minval;maxval=1.0)
-    Xu = view(X,:,imin:imax)
-    λu = view(λ,imin:imax)
-    
+    eos = os_eigen(d,matrixpart=:full,ilims=(minval,1.0),normalize=:true)
+    λu, Xu = eos.λ, eos.X
+
     Qb, invF = qbmat(M,Xu,λu)
 
     maxer(t::Real) = -opnorm(exp(t*Qb))
 
-    gcheck = maxer(0.01)^2
-    if gcheck < 1
-        tformax, mgrowth = 0.0, 1.0
-    else
-        ts, tf = T
-        mindata = optimize(maxer,ts,tf)
-        tformax, mgrowth = mindata.minimizer, mindata.minimum^2
-    end
+    # Find the time and value of maximum energy 
+    gcheck = maxer(0.01)^2 >= 1
+    tformax, mgrowth = _max_growth(maxer,T,Val(gcheck))
 
+    #= 
+    Perform an SVD of the evolution matrix at the time of maximum growth
+    to find the optimal disturbance and the corresponding growth rate
+    =#
     evol = exp(tformax*Qb)
     Fevol = svd(evol)
     mgrowth = Fevol.S[1]^2
 
-    flowin = sqrt(2*ak2)*Xu*invF*Fevol.V[:,1]
-    flowout = sqrt(2*ak2)*Xu*invF*Fevol.U[:,1]
-    
-    tid = range(ts,tf,length=ntime)
-    gg = [maxer(t)^2 for t in tid]
-    return OptimalGrowth(d,T,ak2,tid,gg,flowin,flowout)
+    # Reconstruct the optimal q0 and qt (in Chebyshev coeffients)
+    κ0 = invF*Fevol.V[:,1]
+    flow0 = sqrt(2*ak2)*Xu*κ0
 
+    κt = invF*Fevol.U[:,1]
+    flowt = sqrt(2*ak2)*Xu*κt
+    
+    # Compute the maximum growth rate curve
+    tid, gg = _collect_growth(maxer,T,ntime)    
+
+    return OptimalGrowth(d,T,eos,tformax,mgrowth,tid,gg,flow0,flowt,κ0,κt)
+
+end
+
+_max_growth(fcn,T,::Val{false}) = 0.0, 1.0
+
+_max_growth(fcn,T::Real,::Val{true})  = T, fcn(T)^2
+
+function _max_growth(fcn,T::Tuple{R,R},::Val{true}) where R <: Real
+    ts, tf = T
+    mindata = optimize(fcn,ts,tf)
+    return mindata.minimizer, mindata.minimum^2
+end
+
+_collect_growth(fcn,T::Real,ntime::Int) = T, fcn(T)^2
+
+function _collect_growth(fcn,T::Tuple{R,R},ntime::Int) where R <: Real
+    tid = range(T...,length=ntime)
+    gg = [fcn(t)^2 for t in tid]
+    return tid, gg
 end
 
 """

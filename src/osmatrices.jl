@@ -1,9 +1,14 @@
 struct OSMatrix{N}
+    α :: Float64
+    β :: Float64
+    ak2 :: Float64
+    C :: Cheb{N}
     Aos :: Matrix{ComplexF64}
     Bos :: Matrix{ComplexF64}
     Asq :: Matrix{ComplexF64}
     Bsq :: Matrix{ComplexF64}
     Aoq :: Matrix{ComplexF64}
+    M :: Matrix{Float64}
 end
 
 
@@ -55,7 +60,10 @@ function os_matrices(α::Real,β::Real,Re::Real,C::Cheb{N};baseflow=:poiseuille)
     Aoq[1,:] = zeros(1,Nos)
     Aoq[Nsq,:] = zeros(1,Nos)
 
-    return OSMatrix{N}(Aos, Bos, Asq, Bsq, Aoq)
+    # Form the energy weight matrix
+    M = energy_matrix(N+1,N+1,ak2)
+
+    return OSMatrix{N}(α, β, ak2, C, Aos, Bos, Asq, Bsq, Aoq, M)
     
 end
 
@@ -91,29 +99,60 @@ optional argument `matrixpart` defaults to `:os`, which returns just
 the OS modes. Instead, this can be set to `:sq` for Squire modes only,
 or `:full` for all modes.
 """
-os_eigen(d::OSMatrix; matrixpart = :os, reduce = (-Inf,Inf,I)) = _os_eigen_raw(d,reduce...,Val(matrixpart))
+os_eigen(d::OSMatrix; matrixpart = :full, ilims = (-Inf,Inf), normalize = :false, categorize = :true) = _os_eigen_raw(d,ilims...,normalize,categorize,Val(matrixpart))
 
-function _os_eigen_raw(d,minval,maxval,M,::Val{:os})
-    F = eigen(d.Aos,d.Bos,sortby=(y -> -imag(y)))
-    #_reduce_eigen(F,minval,maxval,M)
+function _os_eigen_raw(d::OSMatrix{N},minval,maxval,normalize,categorize,::Val{:os}) where N
+    λ, X = eigen(d.Aos,d.Bos,sortby=(y -> -imag(y)))
+    _normalize_eigenvectors!(X,d.M[1:N+1,1:N+1],Val(normalize))
+    λu,Xu = _limit_eigenvalues(λ,X,minval,maxval)
+    return OSEigen(collect(1:length(λ)),Integer[],λu,Xu)
 end
 
-_os_eigen_raw(d,minval,maxval,M,::Val{:sq}) = eigen(d.Asq,d.Bsq,sortby=(y -> -imag(y)))
+function _os_eigen_raw(d::OSMatrix{N},minval,maxval,normalize,categorize,::Val{:sq}) where N
+    λ, X = eigen(d.Asq,d.Bsq,sortby=(y -> -imag(y)))
+    _normalize_eigenvectors!(X,d.M[N+2:2N+2,N+2:2N+2],Val(normalize))
+    λu,Xu = _limit_eigenvalues(λ,X,minval,maxval)
+    return OSEigen(Integer[],collect(1:length(λ)),λu,Xu)
+end
 
-function _os_eigen_raw(d,minval,maxval,M,::Val{:full})
+function _os_eigen_raw(d::OSMatrix{N},minval,maxval,normalize,categorize,::Val{:full}) where N
     nos, nsq = size(d.Aoq)
     A = [d.Aos zeros(nos,nsq); d.Aoq d.Asq]
     B = [d.Bos zeros(nos,nsq); zeros(nsq,nos) d.Bsq]
-    eigen(A,B,sortby=(y -> -imag(y)))
+    λ, X = eigen(A,B,sortby=(y -> -imag(y)))
+    _normalize_eigenvectors!(X,d.M,Val(normalize))
+    λu,Xu = _limit_eigenvalues(λ,X,minval,maxval)
+    ios, isq = _categorize_os_eigen(λu, Xu, N, Val(categorize))
+    return OSEigen(ios,isq,λu,Xu)
 end
 
+_normalize_eigenvectors!(X,M,::Val{false}) = X
+_normalize_eigenvectors!(X,M,::Val{true}) = normalize_columns!(X,M)
 
-#=
-λ = F.values
-    X = copy(F.vectors)
-    normalize_columns!(X,M)
+function _limit_eigenvalues(λ,X,minval,maxval)
+    imin, imax = count_eigenvalues(λ,minval;maxval=maxval)
+    λu = λ[imin:imax]
+    Xu = X[:,imin:imax]
+    return λu, Xu
+end
 
-    imin, imax = count_eigenvalues(λ,minval;maxval=1.0)
-    Xu = view(X,:,imin:imax)
-    λu = view(λ,imin:imax)
-    =#
+struct OSEigen
+    ios :: Vector{Integer}
+    isq :: Vector{Integer}
+    λ :: Vector{ComplexF64}
+    X :: Matrix{ComplexF64}
+end
+
+_categorize_os_eigen(λ::Vector,X::Matrix,N::Integer,::Val{false}) = Integer[], Integer[]
+
+function _categorize_os_eigen(λ::Vector,X::Matrix,N::Integer,::Val{true})
+    ios, isq = Integer[], Integer[]
+    for j in eachindex(λ)
+        if maximum(abs.(X[1:N+1,j])) < eps()
+            push!(isq,j)
+        else
+            push!(ios,j)
+        end
+    end
+    return ios, isq
+end

@@ -24,11 +24,11 @@ for ifirst <= i <= ilast
 """
 function count_eigenvalues(evals::Vector,a::Real;maxval=0.5)
     ifirst = 1
-    while imag(evals[ifirst]) > maxval
+    while ifirst <= length(evals) && imag(evals[ifirst]) > maxval
         ifirst += 1
     end
     ilast = ifirst
-    while imag(evals[ilast]) > a
+    while ilast <= length(evals) && imag(evals[ilast]) > a
         ilast += 1
     end
     return ifirst, ilast - 1
