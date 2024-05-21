@@ -2,19 +2,19 @@ for fname in (:velocity_x, :velocity_y, :velocity_z, :vorticity_x, :vorticity_y,
 
     ufname = Symbol("_",fname)
 
-    @eval function $fname(qhat::Vector{ComplexF64},d::OSMatrix{N}; lim = (0,4), Ng = 200, plane = :xy) where {N}
+    @eval function $fname(qhat::Vector{ComplexF64},d::OSMatrix{N}; glims = (0,4), Ng = 200, plane = :xy) where {N}
         @unpack α, β, ak2, C = d
 
         vhat_cheb, ηhat_cheb = qhat[1:N+1], qhat[N+2:2N+2]
         fhat = $ufname(vhat_cheb,ηhat_cheb,α,β,ak2,C)
 
-        xg = range(lim...,length=Ng)
+        xg = range(glims...,length=Ng)
         wavenum = _get_wavenumber(α,β,Val(plane))
 
         return collect(xg), reverse(C.y), real(reverse(fhat)*exp.(im*(wavenum*xg')))
     end
 
-    @eval function $fname(κ0::Vector{ComplexF64},d::OSMatrix{N}, eos::OSEigen, t::Float64; lim = (0,4), Ng = 200, plane = :xy) where {N}
+    @eval function $fname(κ0::Vector{ComplexF64},d::OSMatrix{N}, eos::OSEigen, t::Float64; glims = (0,4), Ng = 200, plane = :xy) where {N}
         @unpack α, β, ak2, C = d
 
         λu, Xu = eos.values, eos.vectors
@@ -24,7 +24,7 @@ for fname in (:velocity_x, :velocity_y, :velocity_z, :vorticity_x, :vorticity_y,
         vhat_cheb, ηhat_cheb = qhat[1:N+1], qhat[N+2:2N+2]
         fhat = $ufname(vhat_cheb,ηhat_cheb,α,β,ak2,C)
 
-        xg = range(lim...,length=Ng)
+        xg = range(glims...,length=Ng)
         wavenum = _get_wavenumber(α,β,Val(plane))
 
         return collect(xg), reverse(C.y), real(reverse(fhat)*exp.(im*(wavenum*xg')))

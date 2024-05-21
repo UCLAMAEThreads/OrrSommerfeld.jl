@@ -71,11 +71,21 @@ function os_matrices(α::Real,β::Real,Re::Real; N::Integer=200,baseflow=:poiseu
 end
 
 """
+    zero_q(d::OSMatrix)
+
+Return a disturbance vector of zeros for O-S system `d`.
+"""
+zero_q(d::OSMatrix) = _zero_q(ComplexF64,d.C)
+
+_zero_q(T::Type{R},C::Cheb{N}) where {R<:Number,N} = zeros(T,2N+2)
+
+
+"""
     energy_matrix(Nos,Nsq,ak2) -> Matrix{Float64}
 
 Computes the energy weight matrix for Couette and Poiseuille flow,
 with `Nos` OS modes and `Nsq` Squire modes, and `ak2` equal to ``k^2 = α^2 + β^2``.
-
+This is used, for example, as `work = M*q` to compute energy as `work'*work`.
 """
 function energy_matrix(Nos,Nsq,ak2)
     Cos = twonorm_weights(Nos)
@@ -102,12 +112,18 @@ struct OSEigen
 end
 
 """
-    os_eigen(d::OSMatrix[;matrixpart = :os])
+    os_eigen(d::OSMatrix[;matrixpart = :os, ilims = (-Inf,Inf), categorize=:true, normalize=:false])
 
-Compute the eigenvalues and eigenvectors of the OS matrix `d`. The
+Compute the eigenvalues and eigenvectors of the O-S matrix `d`. The
 optional argument `matrixpart` defaults to `:os`, which returns just
 the OS modes. Instead, this can be set to `:sq` for Squire modes only,
-or `:full` for all modes.
+or `:full` for all modes. The eigenvalues are returned in field `values`
+and the eigenvectors in field `vectors`. The other optional arguments are `ilims`,
+which specifies a range of imaginary parts of the eigenvalues to keep; `categorize`,
+which splits the indices of the eigenvalues into lists `ios` and `isq` that
+correspond to the O-S modes and Squire modes, respectively; and `normalize`,
+which ensures that each eigenvector has unit value after it has been multiplied by
+the energy weighting matrix.
 """
 os_eigen(d::OSMatrix; matrixpart = :full, ilims = (-Inf,Inf), normalize = :false, categorize = :true) = _os_eigen_raw(d,ilims...,normalize,categorize,Val(matrixpart))
 

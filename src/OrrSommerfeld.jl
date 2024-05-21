@@ -5,7 +5,7 @@ module OrrSommerfeld
     using UnPack
 
     export Cheb
-    export os_matrices, os_eigen, optimal_growth, disturbance_energy
+    export os_matrices, os_eigen, optimal_growth, disturbance_energy, zero_q
     export velocity_x, velocity_y, velocity_z, vorticity_x, vorticity_y, vorticity_z
 
     
