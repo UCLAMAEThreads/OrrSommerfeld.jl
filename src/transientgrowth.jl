@@ -3,7 +3,7 @@ struct OptimalGrowth{DT,GT}
     d :: OSMatrix
 
     # Range of times over which the growth was inspected
-    T :: Tuple{Float64,Float64}
+    T :: Tuple
 
      # OS eigenvalues/vectors
      e :: OSEigen
