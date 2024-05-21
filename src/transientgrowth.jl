@@ -89,11 +89,11 @@ function _collect_growth(fcn,T::Tuple{R,R},ntime::Int) where R <: Real
 end
 
 """
-    disturbance_energy(κ0::Vector,d::OSMatrix,eos::OSEigen,t::Real)
+    disturbance_energy(κ0::Vector,d::OSMatrix,eos::OSEigen,t::Real) -> Real
 
 Given a disturbance vector `κ0` (expressed as coefficients of OS eigenvectors) for an O-S system `d`
 with associated eigenvalues/vectors `eos`, compute the disturbance energy
-at time `t`. 
+at time `t`. If `t` is a vector of times, then a vector of energies is returned.
 """
 function disturbance_energy(κ0::Vector{ComplexF64},d::OSMatrix{N}, eos::OSEigen, t::Real) where N
     @unpack α, β, ak2, C, M = d
@@ -103,9 +103,12 @@ function disturbance_energy(κ0::Vector{ComplexF64},d::OSMatrix{N}, eos::OSEigen
     qhat = Xu*κt
     work = M*qhat
 
-    return 0.5/ak2*norm(work)^2
+    return norm(work)^2
 
 end
+
+disturbance_energy(κ0::Vector{ComplexF64},d::OSMatrix{N}, eos::OSEigen, tr::AbstractVector) where N =
+    [disturbance_energy(κ0,d,eos,t) for t in tr]
 
 """
     qbmat(M,X,λ) -> Matrix{ComplexF64}, Matrix{ComplexF64}
